@@ -317,16 +317,19 @@ int main(int argc, char** argv) {
     string input_folder_mt="IC/";
     string input_folder_tt="IC/";
     string input_folder_mm="USCMS/";
+		string only_init="";
     string scale_sig_procs="";
     string postfix="";
     bool ttbar_fit = false;
     unsigned no_shape_systs = 0;
     bool do_embedding = true;
+    bool do_mva = false;
     bool auto_rebin = false;
     bool do_jetfakes = true;
     bool mergeXbbb = false; 
 
     string era;
+    string channels;
     po::variables_map vm;
     po::options_description config("configuration");
     config.add_options()
@@ -335,15 +338,18 @@ int main(int argc, char** argv) {
     ("input_folder_mt", po::value<string>(&input_folder_mt)->default_value("IC/"))
     ("input_folder_tt", po::value<string>(&input_folder_tt)->default_value("IC/"))
     ("input_folder_mm", po::value<string>(&input_folder_mm)->default_value("USCMS"))
+    ("only_init", po::value<string>(&only_init)->default_value(""))
     ("postfix", po::value<string>(&postfix)->default_value(postfix))
     ("output_folder", po::value<string>(&output_folder)->default_value("sm_run2"))
     ("no_shape_systs", po::value<unsigned>(&no_shape_systs)->default_value(no_shape_systs))
     ("do_embedding", po::value<bool>(&do_embedding)->default_value(true))
     ("do_jetfakes", po::value<bool>(&do_jetfakes)->default_value(true))
+    ("do_mva", po::value<bool>(&do_mva)->default_value(false))
     ("auto_rebin", po::value<bool>(&auto_rebin)->default_value(false))
     ("era", po::value<string>(&era)->default_value("2018"))
     ("ttbar_fit", po::value<bool>(&ttbar_fit)->default_value(false))
-    ("mergeXbbb", po::value<bool>(&mergeXbbb)->default_value(false));
+    ("mergeXbbb", po::value<bool>(&mergeXbbb)->default_value(false))
+    ("channels", po::value<string>(&channels)->default_value({"all"}));
 
     po::store(po::command_line_parser(argc, argv).options(config).run(), vm);
     po::notify(vm);
@@ -365,10 +371,31 @@ int main(int argc, char** argv) {
     input_dir["mt"]  = string(getenv("CMSSW_BASE")) + "/src/CombineHarvester/HTTSMCPDecays18/shapes/"+input_folder_mt+"/";
     input_dir["et"]  = string(getenv("CMSSW_BASE")) + "/src/CombineHarvester/HTTSMCPDecays18/shapes/"+input_folder_et+"/";
     input_dir["tt"]  = string(getenv("CMSSW_BASE")) + "/src/CombineHarvester/HTTSMCPDecays18/shapes/"+input_folder_tt+"/";
-    input_dir["ttbar"]  = string(getenv("CMSSW_BASE")) + "/src/CombineHarvester/HTTSMCPDecays18/shapes/"+input_folder_em+"/";    
-    
-    
-    VString chns = {"tt","mt"};
+    input_dir["ttbar"]  = string(getenv("CMSSW_BASE")) + "/src/CombineHarvester/HTTSMCPDecays18/shapes/"+input_folder_em+"/";
+
+
+    cout << channels << endl;
+    vector<string> channelvec;
+    // bool em_channel = false;
+    if(channels=="all"){
+      channelvec = {"mt","tt"};
+			// channelvec = {"em","et","mt","tt"};
+      // em_channel=true;
+    }
+    else{
+      string c;
+      for(char& s : channels){
+        // if(c=="em") em_channel=true;
+        if(s==','){
+          channelvec.push_back(c);
+          c = "";
+        }
+        else c.push_back(s);
+      }
+      channelvec.push_back(c);
+    }
+    VString chns = channelvec;
+    // VString chns = {"tt"};
     if (ttbar_fit) chns.push_back("ttbar");
     
     map<string, VString> bkg_procs;
@@ -429,14 +456,24 @@ int main(int argc, char** argv) {
         {11, "tt_2017_higgs_other"},
       };
 
-      cats["mt_2017"] = {
-        {1, "mt_2017_zttEmbed"},
-        {2, "mt_2017_jetFakes"},
-        {3, "mt_2017_higgs_Mu_Pi"},
-        {4, "mt_2017_higgs_Mu_A1"},
-        {5, "mt_2017_higgs_Mu_Rho_Mixed"},
-        //{6, "mt_2017_higgs_Mu_Rho_Ip"},
-      };
+      if (do_mva) {
+        cats["mt_2017"] = {
+          {1, "mt_2017_zttEmbed"},
+          {2, "mt_2017_jetFakes"},
+          {3, "mt_2017_higgs_Mu_Pi"},
+          {4, "mt_2017_higgs_Mu_A1"},
+          {5, "mt_2017_higgs_Mu_Rho_Mixed"},
+          //{6, "mt_2017_higgs_Mu_Rho_Ip"},
+        };
+      }
+      else {
+        cats["mt_2017"] = {
+          {1, "mt_0jet"},
+          {2, "mt_boosted"},
+          {3, "mt_dijet_lowboost_mixed"},
+          {4, "mt_dijet_boosted_mixed"}
+        };
+      }
     }
     if( era.find("2018") != std::string::npos ||  era.find("all") != std::string::npos) {
       cats["tt_2018"] = {
@@ -499,7 +536,15 @@ int main(int argc, char** argv) {
         return s->name().find("scale_t") != std::string::npos || s->name().find("scale_e") != std::string::npos || s->name().find("scale_j") != std::string::npos || s->name().find("_met_") != std::string::npos || s->name().find("ZLShape") != std::string::npos;
       });
     }
-            
+
+		if (! only_init.empty()) {
+        std::cout << "Write datacards (without shapes) to directory \"" << only_init << "\" and quit." << std::endl;
+        ch::CardWriter tmpWriter("$TAG/$ANALYSIS_$ERA_$CHANNEL_$BINID_$MASS.txt", "$TAG/dummy.root");
+        tmpWriter.WriteCards(only_init, cb);
+
+        return 0;
+    }
+
     //! [part7]
     for(auto year: years) {
       for (string chn : chns){
