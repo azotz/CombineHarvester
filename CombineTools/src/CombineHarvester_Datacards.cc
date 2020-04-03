@@ -32,7 +32,7 @@ namespace ch {
 // Extract info from filename using parse rule like:
 // ".*{MASS}/{ANALYSIS}_{CHANNEL}_{BINID}_{ERA}.txt"
 int CombineHarvester::ParseDatacard(std::string const& filename,
-    std::string parse_rules) {
+    std::string parse_rules, bool loadShapes) {
   boost::replace_all(parse_rules, "$ANALYSIS",  "(?<ANALYSIS>[\\w\\.]+)");
   boost::replace_all(parse_rules, "$ERA",       "(?<ERA>[\\w\\.]+)");
   boost::replace_all(parse_rules, "$CHANNEL",   "(?<CHANNEL>[\\w\\.]+)");
@@ -47,7 +47,8 @@ int CombineHarvester::ParseDatacard(std::string const& filename,
     matches.str("CHANNEL"),
     matches.str("BINID").length() ?
       boost::lexical_cast<int>(matches.str("BINID")) : 0,
-    matches.str("MASS"));
+    matches.str("MASS"),
+    loadShapes);
   return 0;
 }
 
@@ -56,8 +57,9 @@ int CombineHarvester::ParseDatacard(std::string const& filename,
     std::string const& era,
     std::string const& channel,
     int bin_id,
-    std::string const& mass) {
-  TH1::AddDirectory(kFALSE);
+    std::string const& mass,
+    bool loadShapes) {
+  //TH1::AddDirectory(kFALSE);
   // Load the entire datacard into memory as a vector of strings
   std::vector<std::string> lines = ch::ParseFileLines(filename);
   // Loop through lines, trimming whitespace at the beginning or end
@@ -223,7 +225,7 @@ int CombineHarvester::ParseDatacard(std::string const& filename,
           obs->set_bin_id(bin_id);
           obs->set_mass(mass);
 
-          LoadShapes(obs.get(), hist_mapping);
+          if (loadShapes) LoadShapes(obs.get(), hist_mapping);
 
           obs_.push_back(obs);
         }
@@ -280,7 +282,7 @@ int CombineHarvester::ParseDatacard(std::string const& filename,
           proc->set_bin_id(bin_id);
           proc->set_mass(mass);
 
-          LoadShapes(proc.get(), hist_mapping);
+          if (loadShapes) LoadShapes(proc.get(), hist_mapping);
 
           procs_.push_back(proc);
         }
@@ -472,7 +474,7 @@ int CombineHarvester::ParseDatacard(std::string const& filename,
         if (sys->type() == "shape" || sys->type() == "shapeN2" ||
             sys->type() == "shapeU") {
           sys->set_scale(boost::lexical_cast<double>(words[i][p]));
-          LoadShapes(sys.get(), hist_mapping);
+          if (loadShapes) LoadShapes(sys.get(), hist_mapping);
         } else if (sys->type() == "shape?") {
           // This might fail, so we have to "try"
           try {
@@ -506,7 +508,7 @@ int CombineHarvester::ParseDatacard(std::string const& filename,
   if (single_obs) {
     if (bin_names.size() == 1) {
       single_obs->set_bin(*(bin_names.begin()));
-      LoadShapes(single_obs.get(), hist_mapping);
+      if (loadShapes) LoadShapes(single_obs.get(), hist_mapping);
       obs_.push_back(single_obs);
     } else {
       throw std::runtime_error(FNERROR(
