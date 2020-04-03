@@ -555,8 +555,7 @@ int main(int argc, char** argv) {
 
 		if (! only_init.empty()) {
         std::cout << "Write datacards (without shapes) to directory \"" << only_init << "\" and quit." << std::endl;
-        ch::CardWriter tmpWriter(output_prefix + output_folder + "/$TAG/$MASS/$BIN.txt",
-	          	    output_prefix + output_folder + "/$TAG/common/htt_input.root");
+        ch::CardWriter tmpWriter("$TAG/$ANALYSIS_$ERA_$CHANNEL_$BINID_$MASS.txt", "$TAG/dummy.root");
         tmpWriter.WriteCards(only_init, cb);
 
         return 0;
