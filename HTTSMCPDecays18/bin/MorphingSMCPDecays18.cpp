@@ -351,7 +351,7 @@ int main(int argc, char** argv) {
     ("era", po::value<string>(&era)->default_value("all"))
     ("ttbar_fit", po::value<bool>(&ttbar_fit)->default_value(false))
     ("mergeXbbb", po::value<bool>(&mergeXbbb)->default_value(false))
-    ("channels", po::value<string>(&channels)->default_value({"all"}));
+    ("channels", po::value<string>(&channels)->default_value({"all"}))
     ("mergeSymm", po::value<bool>(&mergeSymm)->default_value(false))
     ("backgroundOnly", po::value<unsigned>(&backgroundOnly)->default_value(0));
 
